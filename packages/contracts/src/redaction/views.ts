@@ -33,10 +33,10 @@ export function createClientView(
 
   // Determine what votes the player can see
   let visibleVotes: Record<Id, typeof state.votes[Id]> | undefined;
-  if (state.phase === 'vote') {
+  if (state.phase === 'day_voting') {
     // During vote phase, show live votes unless anonymous voting is enabled
     visibleVotes = state.settings.anonymousVoting ? undefined : state.votes;
-  } else if (state.phase === 'ended' || (state.phase === 'day' && Object.keys(state.votes).length > 0)) {
+  } else if (state.phase === 'ended' || ((state.phase === 'day_announcement' || state.phase === 'day_discussion') && Object.keys(state.votes).length > 0)) {
     // After voting ends, show final results
     visibleVotes = state.votes;
   }

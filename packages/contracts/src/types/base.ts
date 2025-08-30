@@ -2,7 +2,7 @@ export type Id = string;
 
 export type Alignment = 'mafia' | 'town' | 'neutral';
 
-export type Phase = 'lobby' | 'night' | 'day' | 'vote' | 'ended';
+export type Phase = 'lobby' | 'night' | 'day_announcement' | 'day_discussion' | 'day_voting' | 'ended';
 
 export type RoleId = 'mafia' | 'detective' | 'doctor' | 'townsperson';
 

@@ -33,16 +33,21 @@ export function advancePhase(state: RoomState): RoomState {
       break;
       
     case 'night':
-      nextPhase = 'day';
+      nextPhase = 'day_announcement';
+      timer = createPhaseTimer(nextPhase, 30000); // 30 seconds for announcement
+      break;
+      
+    case 'day_announcement':
+      nextPhase = 'day_discussion';
       timer = createPhaseTimer(nextPhase, state.settings.dayDurationMs);
       break;
       
-    case 'day':
-      nextPhase = 'vote';
+    case 'day_discussion':
+      nextPhase = 'day_voting';
       timer = createPhaseTimer(nextPhase, state.settings.voteDurationMs);
       break;
       
-    case 'vote':
+    case 'day_voting':
       // After voting, check victory again before going to night
       const postVoteVictory = checkVictoryCondition(state);
       if (shouldGameEnd(postVoteVictory)) {
@@ -136,11 +141,12 @@ export function arePhaseActionsComplete(state: RoomState): boolean {
       });
     }
     
-    case 'day':
-      // Day phase is for discussion, no required actions
+    case 'day_announcement':
+    case 'day_discussion':
+      // Day phases are for discussion, no required actions
       return false;
       
-    case 'vote': {
+    case 'day_voting': {
       // Check if all alive players have voted
       const alivePlayerIds = Object.values(state.players)
         .filter(p => p.status === 'alive')
@@ -205,10 +211,21 @@ export function getPhaseInfo(state: RoomState): PhaseInfo {
         remainingMs,
       };
       
-    case 'day':
+    case 'day_announcement':
       return {
-        phase: 'day',
-        displayName: 'Day Phase',
+        phase: 'day_announcement',
+        displayName: 'Dawn',
+        description: 'See what happened during the night',
+        isNightPhase: false,
+        allowsChat: false,
+        allowsVoting: false,
+        remainingMs,
+      };
+      
+    case 'day_discussion':
+      return {
+        phase: 'day_discussion',
+        displayName: 'Discussion',
         description: 'Discuss and figure out who the mafia might be',
         isNightPhase: false,
         allowsChat: true,
@@ -216,10 +233,10 @@ export function getPhaseInfo(state: RoomState): PhaseInfo {
         remainingMs,
       };
       
-    case 'vote':
+    case 'day_voting':
       return {
-        phase: 'vote',
-        displayName: 'Voting Phase',
+        phase: 'day_voting',
+        displayName: 'Voting',
         description: 'Vote to eliminate a suspected mafia member',
         isNightPhase: false,
         allowsChat: false,

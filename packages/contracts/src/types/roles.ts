@@ -36,6 +36,12 @@ export interface VotingConfig {
   readonly weight?: number;
 }
 
+export interface WinCondition {
+  readonly type: 'elimination' | 'survival';
+  readonly target?: Alignment[];
+  readonly description: string;
+}
+
 export interface AiAgentConfig {
   readonly decideNightAction?: (view: ClientView) => Promise<Omit<NightAction, 'priority' | 'submittedAt'>>;
   readonly decideDayVote?: (view: ClientView) => Promise<{ targetId: Id | null }>;
@@ -52,6 +58,10 @@ export interface RoleConfig {
   readonly voting: VotingConfig;
   readonly onApplyMeta?: (state: RoomState, action: NightAction) => void;
   readonly ai?: AiAgentConfig;
+  
+  // New fields for better player experience
+  readonly startingKnowledge?: string[];
+  readonly winCondition?: WinCondition;
 }
 
 // Forward declarations for circular dependency resolution

@@ -5,7 +5,7 @@ import { makeRoomState, makeVote, makePlayer, pid } from '../test/factories.js';
 describe('Voting Resolution', () => {
   it('should lynch player with majority votes', () => {
     const state = makeRoomState({
-      phase: 'vote',
+      phase: 'day_voting',
       players: [
         makePlayer({ id: 'p1', name: 'Player1' }),
         makePlayer({ id: 'p2', name: 'Player2' }),
@@ -32,7 +32,7 @@ describe('Voting Resolution', () => {
 
   it('should result in no lynch on tie with majority voting', () => {
     const state = makeRoomState({
-      phase: 'vote',
+      phase: 'day_voting',
       players: [
         makePlayer({ id: 'p1', name: 'Player1' }),
         makePlayer({ id: 'p2', name: 'Player2' }),
@@ -62,7 +62,7 @@ describe('Voting Resolution', () => {
     ];
 
     const state = makeRoomState({
-      phase: 'vote',
+      phase: 'day_voting',
       players,
     });
 

@@ -132,7 +132,7 @@ export class PolicyService {
    */
   static validateVote(state: RoomState, vote: Vote): PolicyResult {
     // Phase validation
-    if (state.phase !== 'vote') {
+    if (state.phase !== 'day_voting') {
       return {
         valid: false,
         violation: {
@@ -317,7 +317,7 @@ export class PolicyService {
    * Get players who should receive AFK strikes for not voting
    */
   static getPlayersWithMissingVotes(state: RoomState): Id[] {
-    if (state.phase !== 'vote') return [];
+    if (state.phase !== 'day_voting') return [];
 
     const alivePlayerIds = Object.values(state.players)
       .filter(p => p.status === 'alive')

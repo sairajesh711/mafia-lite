@@ -27,7 +27,7 @@ const MAFIA_ROLE: RoleConfig = {
   chat: {
     canSpeak: ({ phase, channel, isAlive }) => {
       if (channel === 'nightMafia' && phase === 'night') return true;
-      if (channel === 'day' && phase === 'day' && isAlive) return true;
+      if (channel === 'day' && (phase === 'day_announcement' || phase === 'day_discussion' || phase === 'day_voting') && isAlive) return true;
       if (channel === 'dead' && !isAlive) return true;
       if (channel === 'lobby' && phase === 'lobby') return true;
       return false;
@@ -36,6 +36,17 @@ const MAFIA_ROLE: RoleConfig = {
   voting: {
     canVote: true,
     weight: 1,
+  },
+  startingKnowledge: [
+    "You are a member of the Mafia.",
+    "Each night, you can choose someone to eliminate.",
+    "You can communicate with other Mafia members during the night.",
+    "Your goal is to eliminate all non-Mafia players."
+  ],
+  winCondition: {
+    type: 'elimination',
+    target: ['town', 'neutral'],
+    description: 'Eliminate all non-Mafia players to win'
   },
 };
 
@@ -60,7 +71,7 @@ const DETECTIVE_ROLE: RoleConfig = {
   },
   chat: {
     canSpeak: ({ phase, channel, isAlive }) => {
-      if (channel === 'day' && phase === 'day' && isAlive) return true;
+      if (channel === 'day' && (phase === 'day_announcement' || phase === 'day_discussion' || phase === 'day_voting') && isAlive) return true;
       if (channel === 'dead' && !isAlive) return true;
       if (channel === 'lobby' && phase === 'lobby') return true;
       return false;
@@ -69,6 +80,17 @@ const DETECTIVE_ROLE: RoleConfig = {
   voting: {
     canVote: true,
     weight: 1,
+  },
+  startingKnowledge: [
+    "You are the Detective.",
+    "Each night, you can investigate one player to learn if they are suspicious.",
+    "Use your investigations wisely to find the Mafia.",
+    "Share your findings during the day to help the town."
+  ],
+  winCondition: {
+    type: 'elimination',
+    target: ['mafia'],
+    description: 'Eliminate all Mafia members to win'
   },
 };
 
@@ -93,7 +115,7 @@ const DOCTOR_ROLE: RoleConfig = {
   },
   chat: {
     canSpeak: ({ phase, channel, isAlive }) => {
-      if (channel === 'day' && phase === 'day' && isAlive) return true;
+      if (channel === 'day' && (phase === 'day_announcement' || phase === 'day_discussion' || phase === 'day_voting') && isAlive) return true;
       if (channel === 'dead' && !isAlive) return true;
       if (channel === 'lobby' && phase === 'lobby') return true;
       return false;
@@ -102,6 +124,17 @@ const DOCTOR_ROLE: RoleConfig = {
   voting: {
     canVote: true,
     weight: 1,
+  },
+  startingKnowledge: [
+    "You are the Doctor.",
+    "Each night, you can protect one player from attacks.",
+    "You can protect yourself, but not the same person twice in a row.",
+    "Keep important town members alive to help win."
+  ],
+  winCondition: {
+    type: 'elimination',
+    target: ['mafia'],
+    description: 'Eliminate all Mafia members to win'
   },
 };
 
@@ -119,7 +152,7 @@ const TOWNSPERSON_ROLE: RoleConfig = {
   },
   chat: {
     canSpeak: ({ phase, channel, isAlive }) => {
-      if (channel === 'day' && phase === 'day' && isAlive) return true;
+      if (channel === 'day' && (phase === 'day_announcement' || phase === 'day_discussion' || phase === 'day_voting') && isAlive) return true;
       if (channel === 'dead' && !isAlive) return true;
       if (channel === 'lobby' && phase === 'lobby') return true;
       return false;
@@ -128,6 +161,17 @@ const TOWNSPERSON_ROLE: RoleConfig = {
   voting: {
     canVote: true,
     weight: 1,
+  },
+  startingKnowledge: [
+    "You are a Townsperson.",
+    "You have no special abilities, but your vote is crucial.",
+    "Listen carefully during discussions and vote to eliminate suspicious players.",
+    "Work with other town members to identify the Mafia."
+  ],
+  winCondition: {
+    type: 'elimination',
+    target: ['mafia'],
+    description: 'Eliminate all Mafia members to win'
   },
 };
 

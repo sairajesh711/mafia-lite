@@ -4,7 +4,7 @@ export const IdSchema = z.string().min(1).max(128);
 
 export const AlignmentSchema = z.enum(['mafia', 'town', 'neutral']);
 
-export const PhaseSchema = z.enum(['lobby', 'night', 'day', 'vote', 'ended']);
+export const PhaseSchema = z.enum(['lobby', 'night', 'day_announcement', 'day_discussion', 'day_voting', 'ended']);
 
 export const RoleIdSchema = z.enum(['mafia', 'detective', 'doctor', 'townsperson']);
 

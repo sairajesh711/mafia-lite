@@ -21,3 +21,10 @@ export interface InvestigationResult {
   readonly isMafia: boolean;
   readonly investigatorId: Id;
 }
+
+export interface ActionResult {
+  readonly success: boolean;
+  readonly message: string;
+  readonly blocked?: boolean;
+  readonly blockedBy?: string;
+}
