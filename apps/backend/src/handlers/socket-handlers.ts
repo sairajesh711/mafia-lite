@@ -9,9 +9,14 @@ import {
 } from '@mafia/contracts';
 import { generateId } from '@mafia/engine';
 import { RoomService } from '../services/room-service.js';
+import { JWTService } from '../services/jwt-service.js';
+import { SessionService } from '../services/session-service.js';
+import { ActionDedupService } from '../services/action-dedup-service.js';
 
 export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<typeof createClient>) {
   const roomService = new RoomService(redisClient);
+  const sessionService = new SessionService(redisClient);
+  const actionDedupService = new ActionDedupService(redisClient);
 
   io.on('connection', (socket: Socket) => {
     console.log(`Client connected: ${socket.id}`);
@@ -89,7 +94,7 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
         
         try {
           // Add player to room
-          const updatedState = await roomService.addPlayerToRoom(roomId, playerId, playerName, sessionId);
+          const updatedState = await roomService.addPlayerToRoom(roomId, playerId, playerName);
           if (!updatedState) {
             sendError('ROOM_NOT_FOUND', 'Room no longer exists');
             return;
@@ -100,11 +105,25 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
           currentRoomId = roomId;
           currentPlayerId = playerId;
 
-          // Send client view
+          // Issue JWT token
+          const jwtSessionId = generateId();
+          const jwt = JWTService.issueRoomToken(playerId, roomId, jwtSessionId);
+
+          // Register session
+          await sessionService.registerSession({
+            playerId,
+            roomId,
+            sessionId: jwtSessionId,
+            socketId: socket.id,
+            connectedAt: Date.now(),
+          });
+
+          // Send client view with JWT
           const clientView = createClientView(updatedState, playerId);
           const snapshotEvent: ServerToClientEvent = {
             event: 'room.snapshot',
             view: clientView,
+            jwt,
             protocolVersion: PROTOCOL_VERSION,
           };
           socket.emit('room.snapshot', snapshotEvent);
@@ -131,6 +150,111 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
       } catch (error) {
         console.error('Room join error:', error);
         sendError('UNAUTHORIZED', 'Failed to process room join');
+      }
+    });
+
+    // Session resume handler
+    socket.on('session.resume', async (data) => {
+      try {
+        const parseResult = ClientToServerEventSchema.safeParse({ event: 'session.resume', payload: data });
+        if (!parseResult.success) {
+          sendError('UNAUTHORIZED', 'Invalid request format');
+          return;
+        }
+
+        const eventData = parseResult.data;
+        if (eventData.event !== 'session.resume') {
+          sendError('UNAUTHORIZED', 'Invalid event type');
+          return;
+        }
+
+        const { roomId, sessionId, jwt } = eventData.payload;
+
+        // Verify JWT
+        const jwtPayload = JWTService.verifyRoomToken(jwt);
+        if (!jwtPayload || jwtPayload.roomId !== roomId || jwtPayload.sessionId !== sessionId) {
+          sendError('UNAUTHORIZED', 'Invalid or expired session token');
+          return;
+        }
+
+        // Check if session is valid
+        const isValidSession = await sessionService.isValidSession(jwtPayload.sub, roomId, sessionId);
+        if (!isValidSession) {
+          sendError('UNAUTHORIZED', 'Session not found or expired');
+          return;
+        }
+
+        // Evict old socket for this player (latest wins policy)
+        const oldSession = await sessionService.getSession(jwtPayload.sub, roomId);
+        if (oldSession && oldSession.socketId !== socket.id) {
+          // Emit "signed out" message to old socket
+          const oldSocket = io.sockets.sockets.get(oldSession.socketId);
+          if (oldSocket) {
+            oldSocket.emit('session.evicted', {
+              reason: 'duplicate_session',
+              message: 'Signed out: another session started for this player',
+            });
+            oldSocket.disconnect(true);
+          }
+        }
+
+        // Update session with new socket
+        await sessionService.updateSessionSocket(jwtPayload.sub, roomId, socket.id);
+
+        // Get room state
+        const roomState = await roomService.getRoomState(roomId);
+        if (!roomState) {
+          sendError('ROOM_NOT_FOUND', 'Room no longer exists');
+          return;
+        }
+
+        // Join socket room
+        await socket.join(`room:${roomId}`);
+        currentRoomId = roomId;
+        currentPlayerId = jwtPayload.sub;
+
+        // Update player connection status
+        await roomService.updatePlayerConnection(roomId, jwtPayload.sub, true, sessionId);
+
+        // Send fresh client view
+        const clientView = createClientView(roomState, jwtPayload.sub);
+        const refreshedToken = JWTService.refreshTokenIfNeeded(jwt);
+        
+        const snapshotEvent: ServerToClientEvent = {
+          event: 'room.snapshot',
+          view: clientView,
+          jwt: refreshedToken || jwt,
+          protocolVersion: PROTOCOL_VERSION,
+        };
+        socket.emit('room.snapshot', snapshotEvent);
+
+        // Send current phase info
+        if (roomState.timer) {
+          const phaseEvent: ServerToClientEvent = {
+            event: 'phase.change',
+            phase: roomState.phase,
+            timer: roomState.timer,
+            night: roomState.phase === 'night',
+            protocolVersion: PROTOCOL_VERSION,
+          };
+          socket.emit('phase.change', phaseEvent);
+        }
+
+        // Broadcast player reconnection
+        const statusEvent: ServerToClientEvent = {
+          event: 'player.status',
+          playerId: jwtPayload.sub,
+          connected: true,
+          alive: roomState.players[jwtPayload.sub]?.status === 'alive',
+          protocolVersion: PROTOCOL_VERSION,
+        };
+        io.to(`room:${roomId}`).emit('player.status', statusEvent);
+
+        console.log(`Player ${jwtPayload.sub} resumed session in room ${roomId}`);
+
+      } catch (error) {
+        console.error('Session resume error:', error);
+        sendError('UNAUTHORIZED', 'Failed to resume session');
       }
     });
 
