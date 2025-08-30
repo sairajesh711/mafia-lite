@@ -34,3 +34,93 @@ Context-Aware UI: The interface is intentionally minimalist. It only shows you t
 Dramatic Reveals: The app is designed to build suspense. The results of the nightly actions and the daily vote are revealed with a moment of drama, enhancing the fun.
 
 Shareable Game Summaries: At the end of the game, a fun, visual summary is generated (e.g., "The Villagers win after a 5-day standoff!"), which can be easily screenshotted and shared, preserving the memory of the game.
+
+## Development Status
+
+### ✅ Phase 1: Core Game Foundation (Completed)
+
+**Architecture & Infrastructure**
+- **Monorepo Setup**: TypeScript monorepo with pnpm workspaces
+- **Strict Type Safety**: `exactOptionalPropertyTypes: true` with proper optional property handling
+- **Development Tooling**: ESLint, Prettier, Husky pre-commit hooks, lint-staged
+- **Package Structure**: 
+  - `@mafia/contracts` - Shared types, Zod schemas, and client view redaction
+  - `@mafia/engine` - Pure game logic and reducers
+
+**Game Engine (Pure & Deterministic)**
+- **Role System**: Data-driven role registry (Mafia, Detective, Doctor, Townsperson)
+- **Night Resolution**: Deterministic action processing (KILL → PROTECT → INVESTIGATE)
+- **Voting System**: Majority and plurality voting with tie handling
+- **Victory Conditions**: Automatic game end detection
+- **Phase Management**: Automatic phase transitions with timers
+- **Privacy by Design**: Client view redaction prevents information leaks
+
+**Testing & Quality**
+- **9 Passing Tests**: Core game logic fully validated
+- **Test Factories**: Clean, maintainable test helpers with proper typing
+- **100% Build Success**: Strict TypeScript compilation
+- **Type-Safe Contracts**: Runtime validation with Zod schemas
+
+### 🚧 Next Phase: Real-Time Infrastructure
+
+**Backend (In Progress)**
+- Socket.IO server with Redis coordination
+- Leader election and room management  
+- JWT-based session handling
+- Action validation and idempotency
+
+**Frontend (Planned)**
+- React + Vite client application
+- Real-time Socket.IO integration
+- Role-specific UI components
+- Reconnection and refresh safety
+
+## Technology Stack
+
+**Monorepo & Build**
+- **Package Manager**: pnpm with workspaces
+- **Language**: TypeScript (strict mode)
+- **Build Tool**: Native TypeScript compiler
+- **Testing**: Vitest
+
+**Backend (Planned)**
+- **Runtime**: Node.js 18+
+- **Framework**: Fastify or Express
+- **Real-time**: Socket.IO
+- **State**: Redis for coordination, in-memory for speed
+- **Deploy**: Google Cloud Run
+
+**Frontend (Planned)**
+- **Framework**: React 18+ with Vite
+- **Styling**: TBD (likely Tailwind CSS)
+- **State Management**: Local state + Socket.IO
+- **Deploy**: Vercel
+
+## Getting Started
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm run build
+
+# Run tests
+pnpm run test
+
+# Development mode
+pnpm run dev
+```
+
+## Project Principles
+
+**Architecture**
+- **Pure Core, Thin I/O**: Game logic is pure functions, network/DB layers are thin wrappers
+- **Contracts First**: Single source of truth for types, validated at runtime
+- **Privacy by Construction**: Server only sends data players should see
+
+**Code Quality**
+- **SOLID Principles**: Open/closed for roles, single responsibility modules
+- **Deterministic**: Reproducible game outcomes, seeded RNG when needed  
+- **Type Safety**: Strict TypeScript, no `any`, exactOptionalPropertyTypes enabled
+- **Test Coverage**: Unit tests for all game logic, integration tests for real-time features
