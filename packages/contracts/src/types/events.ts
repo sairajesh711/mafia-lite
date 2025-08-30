@@ -43,7 +43,9 @@ export interface HostActionPayload {
 export interface RoomSnapshotEvent extends Versioned {
   readonly event: 'room.snapshot';
   readonly view: ClientView;
+  readonly playerId: Id;
   readonly jwt?: string;
+  readonly sessionId?: Id;
 }
 
 export interface PhaseChangeEvent extends Versioned {

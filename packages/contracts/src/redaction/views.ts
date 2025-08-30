@@ -74,6 +74,7 @@ export function createClientView(
     timer: state.timer,
     settings: state.settings,
     players: publicPlayers,
+    isHost: playerId === state.hostId,
     selfRole: {
       roleId: player.roleId,
       alignment: player.alignment,

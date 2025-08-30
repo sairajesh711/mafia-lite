@@ -12,6 +12,14 @@ import { RoomService } from '../services/room-service.js';
 import { JWTService } from '../services/jwt-service.js';
 import { SessionService } from '../services/session-service.js';
 import { ActionDedupService } from '../services/action-dedup-service.js';
+import { PolicyService } from '../services/policy-service.js';
+import { 
+  resolveNightActions, 
+  resolveVoting, 
+  checkVictoryCondition,
+  advancePhase,
+  shouldAdvancePhase 
+} from '@mafia/engine';
 
 export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<typeof createClient>) {
   const roomService = new RoomService(redisClient);
@@ -50,6 +58,7 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
             const snapshotEvent: ServerToClientEvent = {
               event: 'room.snapshot',
               view: clientView,
+              playerId: playerId,
               protocolVersion: PROTOCOL_VERSION,
             };
             
@@ -123,7 +132,9 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
           const snapshotEvent: ServerToClientEvent = {
             event: 'room.snapshot',
             view: clientView,
+            playerId: playerId,
             jwt,
+            sessionId: jwtSessionId,
             protocolVersion: PROTOCOL_VERSION,
           };
           socket.emit('room.snapshot', snapshotEvent);
@@ -223,7 +234,9 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
         const snapshotEvent: ServerToClientEvent = {
           event: 'room.snapshot',
           view: clientView,
+          playerId: jwtPayload.sub,
           jwt: refreshedToken || jwt,
+          sessionId: sessionId,
           protocolVersion: PROTOCOL_VERSION,
         };
         socket.emit('room.snapshot', snapshotEvent);
@@ -309,6 +322,203 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
       } catch (error) {
         console.error('Host action error:', error);
         sendError('UNAUTHORIZED', 'Failed to process host action');
+      }
+    });
+
+    // Night action submission
+    socket.on('action.submit', async (data) => {
+      try {
+        if (!currentRoomId || !currentPlayerId) {
+          sendError('UNAUTHORIZED', 'Not in a room');
+          return;
+        }
+
+        const parseResult = ClientToServerEventSchema.safeParse({ event: 'action.submit', payload: data });
+        if (!parseResult.success) {
+          sendError('UNAUTHORIZED', 'Invalid request format');
+          return;
+        }
+
+        const eventData = parseResult.data;
+        if (eventData.event !== 'action.submit') {
+          sendError('UNAUTHORIZED', 'Invalid event type');
+          return;
+        }
+
+        const { actionId, type, targetId } = eventData.payload;
+
+        // Check for duplicate action
+        const dedupResult = await actionDedupService.checkAndMarkAction(actionId, currentPlayerId, currentRoomId);
+        if (dedupResult.isDuplicate) {
+          if (dedupResult.wasProcessed && dedupResult.originalResponse) {
+            // Return cached response for idempotency
+            socket.emit('action.ack', dedupResult.originalResponse);
+          }
+          return;
+        }
+
+        // Get current room state
+        const roomState = await roomService.getRoomState(currentRoomId);
+        if (!roomState) {
+          await actionDedupService.markActionFailed(actionId, currentPlayerId, currentRoomId, 'Room not found');
+          sendError('ROOM_NOT_FOUND', 'Room no longer exists');
+          return;
+        }
+
+        // Create night action object
+        const nightAction = {
+          id: actionId,
+          actionId,
+          playerId: currentPlayerId,
+          type: type as any,
+          targetId,
+          submittedAt: Date.now(),
+          priority: (type === 'KILL' ? 10 : type === 'PROTECT' ? 20 : 30) as 10 | 20 | 30,
+        };
+
+        // Validate action with policy service
+        const policyResult = PolicyService.validateNightAction(roomState, nightAction);
+        if (!policyResult.valid && policyResult.violation) {
+          await actionDedupService.markActionFailed(actionId, currentPlayerId, currentRoomId, policyResult.violation.message);
+          sendError(policyResult.violation.code, policyResult.violation.message, policyResult.violation.retryable);
+          return;
+        }
+
+        // Add action to room state
+        const updatedState = {
+          ...roomState,
+          nightActions: {
+            ...roomState.nightActions,
+            [actionId]: nightAction,
+          },
+        };
+
+        await roomService.updateRoomState(currentRoomId, updatedState);
+
+        // Mark action as completed
+        const ackResponse = {
+          event: 'action.ack',
+          actionId,
+          type,
+          targetId,
+          protocolVersion: PROTOCOL_VERSION,
+        };
+        
+        await actionDedupService.markActionCompleted(actionId, currentPlayerId, currentRoomId, ackResponse);
+
+        // Send acknowledgment
+        socket.emit('action.ack', ackResponse);
+
+        console.log(`Player ${currentPlayerId} submitted ${type} action on ${targetId} in room ${currentRoomId}`);
+
+        // Check if all required actions are submitted
+        const shouldAdvance = shouldAdvancePhase(updatedState);
+        if (shouldAdvance) {
+          // TODO: Trigger phase advancement
+          console.log(`All actions submitted for room ${currentRoomId}, should advance phase`);
+        }
+
+      } catch (error) {
+        console.error('Action submit error:', error);
+        sendError('UNAUTHORIZED', 'Failed to process action');
+      }
+    });
+
+    // Vote submission
+    socket.on('vote.cast', async (data) => {
+      try {
+        if (!currentRoomId || !currentPlayerId) {
+          sendError('UNAUTHORIZED', 'Not in a room');
+          return;
+        }
+
+        const parseResult = ClientToServerEventSchema.safeParse({ event: 'vote.cast', payload: data });
+        if (!parseResult.success) {
+          sendError('UNAUTHORIZED', 'Invalid request format');
+          return;
+        }
+
+        const eventData = parseResult.data;
+        if (eventData.event !== 'vote.cast') {
+          sendError('UNAUTHORIZED', 'Invalid event type');
+          return;
+        }
+
+        const { actionId, targetId } = eventData.payload;
+
+        // Check for duplicate vote
+        const dedupResult = await actionDedupService.checkAndMarkAction(actionId, currentPlayerId, currentRoomId);
+        if (dedupResult.isDuplicate) {
+          if (dedupResult.wasProcessed && dedupResult.originalResponse) {
+            socket.emit('vote.update', dedupResult.originalResponse);
+          }
+          return;
+        }
+
+        // Get current room state
+        const roomState = await roomService.getRoomState(currentRoomId);
+        if (!roomState) {
+          await actionDedupService.markActionFailed(actionId, currentPlayerId, currentRoomId, 'Room not found');
+          sendError('ROOM_NOT_FOUND', 'Room no longer exists');
+          return;
+        }
+
+        // Create vote object
+        const vote = {
+          id: actionId,
+          actionId,
+          playerId: currentPlayerId,
+          targetId,
+          submittedAt: Date.now(),
+        };
+
+        // Validate vote with policy service
+        const policyResult = PolicyService.validateVote(roomState, vote);
+        if (!policyResult.valid && policyResult.violation) {
+          await actionDedupService.markActionFailed(actionId, currentPlayerId, currentRoomId, policyResult.violation.message);
+          sendError(policyResult.violation.code, policyResult.violation.message, policyResult.violation.retryable);
+          return;
+        }
+
+        // Add vote to room state
+        const updatedState = {
+          ...roomState,
+          votes: {
+            ...roomState.votes,
+            [actionId]: vote,
+          },
+        };
+
+        await roomService.updateRoomState(currentRoomId, updatedState);
+
+        // Calculate current tallies
+        const tallies = Object.values(updatedState.votes)
+          .reduce((acc, v) => {
+            if (v.targetId) {
+              acc[v.targetId] = (acc[v.targetId] || 0) + 1;
+            }
+            return acc;
+          }, {} as Record<string, number>);
+
+        // Mark vote as completed
+        const updateResponse = {
+          event: 'vote.update',
+          playerId: currentPlayerId,
+          targetId,
+          tallies: roomState.settings.anonymousVoting ? undefined : tallies,
+          protocolVersion: PROTOCOL_VERSION,
+        };
+
+        await actionDedupService.markActionCompleted(actionId, currentPlayerId, currentRoomId, updateResponse);
+
+        // Broadcast vote update
+        io.to(`room:${currentRoomId}`).emit('vote.update', updateResponse);
+
+        console.log(`Player ${currentPlayerId} voted for ${targetId} in room ${currentRoomId}`);
+
+      } catch (error) {
+        console.error('Vote cast error:', error);
+        sendError('UNAUTHORIZED', 'Failed to process vote');
       }
     });
 
