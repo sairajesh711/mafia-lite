@@ -1,0 +1,115 @@
+# Production Cloud Build Configuration
+steps:
+  # Security: Vulnerability scanning
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['version']
+    id: 'docker-version'
+
+  # Build multi-stage production image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-f', 'apps/backend/Dockerfile.prod',
+      '--build-arg', 'NODE_ENV=production',
+      '-t', 'eu.gcr.io/$PROJECT_ID/mafia-backend:$BUILD_ID',
+      '-t', 'eu.gcr.io/$PROJECT_ID/mafia-backend:latest',
+      '--cache-from', 'eu.gcr.io/$PROJECT_ID/mafia-backend:latest',
+      '.'
+    ]
+    id: 'build-image'
+    waitFor: ['docker-version']
+
+  # Security scan (optional but recommended)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'run', '--rm',
+      '-v', '/var/run/docker.sock:/var/run/docker.sock',
+      '-v', '${PWD}:/workspace',
+      'aquasec/trivy:latest',
+      'image',
+      '--exit-code', '0',  # Don't fail build on vulnerabilities (for now)
+      '--severity', 'HIGH,CRITICAL',
+      'eu.gcr.io/$PROJECT_ID/mafia-backend:$BUILD_ID'
+    ]
+    id: 'security-scan'
+    waitFor: ['build-image']
+
+  # Push images to registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/mafia-backend:$BUILD_ID']
+    id: 'push-versioned'
+    waitFor: ['security-scan']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'eu.gcr.io/$PROJECT_ID/mafia-backend:latest']
+    id: 'push-latest'
+    waitFor: ['security-scan']
+
+  # Deploy to Cloud Run with production settings
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: [
+      'run', 'deploy', 'mafia-backend-prod',
+      '--image', 'eu.gcr.io/$PROJECT_ID/mafia-backend:$BUILD_ID',
+      '--region', 'europe-west1',
+      '--platform', 'managed',
+      '--allow-unauthenticated',
+      
+      # Production resource allocation
+      '--memory', '1Gi',
+      '--cpu', '1',
+      '--concurrency', '1000',
+      '--min-instances', '1',  # Always have 1 instance warm
+      '--max-instances', '10',
+      '--timeout', '300s',
+      
+      # Environment variables
+      '--set-env-vars', 'NODE_ENV=production,REDIS_URL=${_REDIS_URL}',
+      '--port', '8080',
+      
+      # VPC and security
+      '--vpc-connector', 'mafia-connector-eu',
+      '--vpc-egress', 'private-ranges-only',
+      
+      # Service account (for security)
+      '--service-account', 'mafia-backend@${PROJECT_ID}.iam.gserviceaccount.com',
+      
+      # Labels for monitoring
+      '--labels', 'env=production,app=mafia-backend,version=v1'
+    ]
+    id: 'deploy-service'
+    waitFor: ['push-versioned', 'push-latest']
+
+  # Smoke test the deployed service
+  - name: 'gcr.io/cloud-builders/curl'
+    args: [
+      '-f', '-s', '-S',
+      '--retry', '3',
+      '--retry-delay', '5',
+      '${_SERVICE_URL}/health'
+    ]
+    id: 'smoke-test'
+    waitFor: ['deploy-service']
+
+# Build configuration
+options:
+  # Use high-performance machine for faster builds
+  machineType: 'E2_HIGHCPU_8'
+  
+  # Build logging
+  logging: 'GCS_ONLY'
+  logsBucket: 'gs://${PROJECT_ID}-build-logs'
+  
+  # Security
+  substitution_option: 'ALLOW_LOOSE'
+
+# Substitutions (set via Cloud Build trigger or CLI)
+substitutions:
+  _REDIS_URL: 'redis://10.154.0.3:6379'  # Update with actual Redis IP
+  _SERVICE_URL: 'https://mafia-backend-prod-${PROJECT_ID}.run.app'
+
+# Timeout for entire build process
+timeout: '1200s'  # 20 minutes
+
+# Tags for build tracking
+tags: ['mafia-backend', 'production']

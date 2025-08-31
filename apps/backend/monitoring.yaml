@@ -1,0 +1,119 @@
+# Production Monitoring Configuration for Google Cloud
+
+# 1. Uptime Check
+apiVersion: monitoring.googleapis.com/v1
+kind: UptimeCheckConfig
+metadata:
+  name: mafia-backend-uptime
+spec:
+  displayName: "Mafia Backend Health Check"
+  httpCheck:
+    path: "/health"
+    port: 443
+    useSsl: true
+    validateSsl: true
+  monitoredResource:
+    type: "uptime_url"
+    labels:
+      host: "mafia-backend-prod-xxxxx-ew.a.run.app"  # Update with actual URL
+  timeout: "10s"
+  period: "60s"  # Check every minute
+  checkIntervalSec: 60
+  
+---
+# 2. Alerting Policy
+apiVersion: monitoring.googleapis.com/v1
+kind: AlertPolicy
+metadata:
+  name: mafia-backend-alerts
+spec:
+  displayName: "Mafia Backend Production Alerts"
+  conditions:
+    # High error rate
+    - displayName: "High Error Rate"
+      conditionThreshold:
+        filter: 'resource.type="cloud_run_revision" resource.labels.service_name="mafia-backend-prod"'
+        comparison: "COMPARISON_GREATER_THAN"
+        thresholdValue: 0.05  # 5% error rate
+        duration: "300s"  # For 5 minutes
+        
+    # High memory usage
+    - displayName: "High Memory Usage"
+      conditionThreshold:
+        filter: 'resource.type="cloud_run_revision" resource.labels.service_name="mafia-backend-prod" metric.type="run.googleapis.com/container/memory/utilizations"'
+        comparison: "COMPARISON_GREATER_THAN"
+        thresholdValue: 0.8  # 80% memory usage
+        duration: "300s"
+        
+    # High CPU usage
+    - displayName: "High CPU Usage"
+      conditionThreshold:
+        filter: 'resource.type="cloud_run_revision" resource.labels.service_name="mafia-backend-prod" metric.type="run.googleapis.com/container/cpu/utilizations"'
+        comparison: "COMPARISON_GREATER_THAN"
+        thresholdValue: 0.8  # 80% CPU usage
+        duration: "300s"
+        
+    # Service down
+    - displayName: "Service Down"
+      conditionThreshold:
+        filter: 'resource.type="uptime_url" resource.labels.host="mafia-backend-prod-xxxxx-ew.a.run.app"'
+        comparison: "COMPARISON_GREATER_THAN"
+        thresholdValue: 1
+        duration: "60s"
+        
+  notificationChannels:
+    - "projects/mafia-game-prod-470720/notificationChannels/[EMAIL_CHANNEL_ID]"
+    
+  alertStrategy:
+    notificationRateLimit:
+      period: "300s"  # Max 1 notification per 5 minutes
+      
+---
+# 3. Dashboard Configuration
+apiVersion: monitoring.googleapis.com/v1
+kind: Dashboard
+metadata:
+  name: mafia-backend-dashboard
+spec:
+  displayName: "Mafia Backend Production Dashboard"
+  mosaicLayout:
+    tiles:
+      # Request metrics
+      - width: 6
+        height: 4
+        widget:
+          title: "Request Rate"
+          xyChart:
+            dataSets:
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: 'resource.type="cloud_run_revision" resource.labels.service_name="mafia-backend-prod"'
+                    aggregation:
+                      alignmentPeriod: "60s"
+                      perSeriesAligner: "ALIGN_RATE"
+                      crossSeriesReducer: "REDUCE_SUM"
+                      
+      # Error rate
+      - width: 6
+        height: 4
+        widget:
+          title: "Error Rate"
+          xyChart:
+            dataSets:
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: 'resource.type="cloud_run_revision" resource.labels.service_name="mafia-backend-prod" metric.type="run.googleapis.com/request_count"'
+                    
+      # Resource utilization
+      - width: 12
+        height: 4
+        widget:
+          title: "Resource Utilization"
+          xyChart:
+            dataSets:
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: 'resource.type="cloud_run_revision" resource.labels.service_name="mafia-backend-prod" metric.type="run.googleapis.com/container/memory/utilizations"'
+              - timeSeriesQuery:
+                  timeSeriesFilter:
+                    filter: 'resource.type="cloud_run_revision" resource.labels.service_name="mafia-backend-prod" metric.type="run.googleapis.com/container/cpu/utilizations"'

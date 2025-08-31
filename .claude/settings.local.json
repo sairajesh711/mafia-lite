@@ -10,7 +10,8 @@
       "Bash(tree:*)",
       "Bash(npx tsc:*)",
       "Bash(taskkill:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(gcloud builds log:*)"
     ],
     "deny": [],
     "ask": []

@@ -21,7 +21,11 @@ async function start() {
     // Register CORS
     await fastify.register(cors, {
       origin: process.env.NODE_ENV === 'production' 
-        ? ['https://your-frontend-domain.com'] 
+        ? [
+            'https://your-app-name.vercel.app',
+            'https://your-custom-domain.com',
+            /^https:\/\/.*\.vercel\.app$/
+          ]
         : true, // Allow all origins in development
       credentials: true,
     });
@@ -50,7 +54,11 @@ async function start() {
     const io = new SocketIOServer(fastify.server, {
       cors: {
         origin: process.env.NODE_ENV === 'production' 
-          ? ['https://your-frontend-domain.com'] 
+          ? [
+              'https://your-app-name.vercel.app',
+              'https://your-custom-domain.com',
+              /^https:\/\/.*\.vercel\.app$/
+            ]
           : '*',
         credentials: true,
       },
