@@ -20,8 +20,8 @@ export class RoomService {
       return this.createRoom(hostId, hostName);
     }
     
-    // Set expiration on room code (60 seconds for reservation)
-    await this.redis.expire(`room_code:${code}`, 60);
+    // Set expiration on room code (same as room - 24 hours)
+    await this.redis.expire(`room_code:${code}`, 86400);
     
     // Create initial room state
     const hostPlayer: Player = {
