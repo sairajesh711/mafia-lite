@@ -9,6 +9,10 @@ import {
 
 // Client to Server Event Schemas
 
+export const RoomCreatePayloadSchema = z.object({
+  hostName: z.string().min(3).max(50).trim(),
+});
+
 export const RoomJoinPayloadSchema = z.object({
   roomCode: z.string().length(6).regex(/^[A-Z0-9]+$/),
   playerName: z.string().min(1).max(50).trim(),
@@ -112,6 +116,7 @@ export const ErrorEventSchema = VersionedSchema.extend({
 // Union schemas for complete validation
 
 export const ClientToServerEventSchema = z.discriminatedUnion('event', [
+  z.object({ event: z.literal('room.create'), payload: RoomCreatePayloadSchema }),
   z.object({ event: z.literal('room.join'), payload: RoomJoinPayloadSchema }),
   z.object({ event: z.literal('session.resume'), payload: SessionResumePayloadSchema }),
   z.object({ event: z.literal('action.submit'), payload: ActionSubmitPayloadSchema }),

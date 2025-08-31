@@ -1,0 +1,371 @@
+/* Import Google Fonts with proper font-display for performance */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 
+ * Base Layer - Foundation styles and resets
+ */
+@layer base {
+  /* Modern CSS reset and base styles */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: theme('fontFamily.body');
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: theme('colors.ui.dark');
+    color: theme('colors.ui.light');
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Accessibility - Respect user motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Focus styles for accessibility - WCAG AA compliant */
+  *:focus-visible {
+    outline: 3px solid theme('colors.ui.500');
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .bg-opacity-80 {
+      background-opacity: 1;
+    }
+    .text-opacity-90 {
+      color-opacity: 1;
+    }
+  }
+
+  /* Enhanced typography for better readability */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: theme('fontFamily.display');
+    font-weight: 600;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Improve form elements */
+  input, textarea, select, button {
+    font: inherit;
+  }
+
+  /* Image optimization */
+  img, picture, video, canvas, svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* 
+ * Components Layer - Reusable UI components
+ */
+@layer components {
+  /* Button Component System */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-3 min-h-11 min-w-11 
+           rounded-lg font-medium text-sm leading-5 
+           transition-all duration-200 ease-in-out
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-ui-dark
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none
+           select-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-ui-500 text-ui-950 
+           hover:bg-ui-600 active:bg-ui-700
+           focus:ring-ui-500
+           shadow-card hover:shadow-portrait;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-200 text-gray-900 
+           hover:bg-gray-300 active:bg-gray-400
+           focus:ring-gray-500;
+  }
+
+  .btn-danger {
+    @apply btn bg-mafia-500 text-white 
+           hover:bg-mafia-600 active:bg-mafia-700
+           focus:ring-mafia-500;
+  }
+
+  /* Role-specific button variants for theming */
+  .btn-mafia {
+    @apply btn bg-mafia-500 text-white 
+           hover:bg-mafia-600 active:bg-mafia-700
+           focus:ring-mafia-500
+           shadow-card hover:shadow-portrait;
+  }
+
+  .btn-detective {
+    @apply btn bg-detective-500 text-detective-950 
+           hover:bg-detective-600 active:bg-detective-700
+           focus:ring-detective-500
+           shadow-card hover:shadow-portrait;
+  }
+
+  .btn-doctor {
+    @apply btn bg-doctor-500 text-doctor-950 
+           hover:bg-doctor-600 active:bg-doctor-700
+           focus:ring-doctor-500
+           shadow-card hover:shadow-portrait;
+  }
+
+  .btn-town {
+    @apply btn bg-town-500 text-town-950 
+           hover:bg-town-600 active:bg-town-700
+           focus:ring-town-500
+           shadow-card hover:shadow-portrait;
+  }
+
+  /* Card Component System */
+  .card {
+    @apply bg-white rounded-lg shadow-card border border-gray-200;
+  }
+
+  .card-dark {
+    @apply bg-ui-950 text-ui-light rounded-lg shadow-game border border-ui-border;
+  }
+
+  .card-elevated {
+    @apply card shadow-elevated;
+  }
+
+  /* Portrait Frame Component */
+  .portrait-frame {
+    @apply relative aspect-portrait rounded-lg overflow-hidden shadow-portrait 
+           ring-2 ring-gray-300 transition-all duration-200;
+  }
+
+  .portrait-frame:hover {
+    @apply ring-ui-500 shadow-elevated transform scale-105;
+  }
+
+  .portrait-frame img {
+    @apply w-full h-full object-cover object-center transition-transform duration-300;
+  }
+
+  /* Death overlay effect with sophisticated visual feedback */
+  .player-eliminated {
+    @apply relative;
+  }
+
+  .player-eliminated::after {
+    content: '';
+    @apply absolute inset-0 rounded-lg pointer-events-none z-10;
+    background: linear-gradient(
+      135deg,
+      rgba(0, 0, 0, 0.8) 0%,
+      rgba(75, 85, 99, 0.6) 50%,
+      rgba(0, 0, 0, 0.9) 100%
+    );
+    backdrop-filter: blur(2px) saturate(0.7);
+  }
+
+  .player-eliminated img {
+    @apply filter grayscale opacity-60 transition-all duration-500;
+  }
+
+  .player-eliminated .portrait-frame {
+    @apply ring-gray-500 shadow-none;
+  }
+
+  /* Background stage for immersive game scenes */
+  .background-stage {
+    @apply relative aspect-landscape w-full overflow-hidden rounded-lg shadow-game;
+  }
+
+  .background-stage img {
+    @apply w-full h-full object-cover object-center;
+  }
+
+  .background-stage::after {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30;
+  }
+
+  /* Error handling components */
+  .error-banner {
+    @apply bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg relative
+           animate-slide-down shadow-card;
+  }
+
+  .error-banner-dark {
+    @apply bg-red-900/20 border border-red-700/30 text-red-300 px-4 py-3 rounded-lg relative
+           animate-slide-down shadow-card backdrop-blur-sm;
+  }
+
+  /* Reconnection overlay with professional styling */
+  .reconnect-overlay {
+    @apply fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-modal
+           animate-fade-in;
+  }
+
+  /* Form components with enhanced UX */
+  .form-input {
+    @apply w-full px-4 py-3 rounded-lg border transition-all duration-200
+           bg-white border-gray-300 text-gray-900 placeholder-gray-500
+           focus:ring-2 focus:ring-ui-500 focus:border-transparent
+           disabled:bg-gray-50 disabled:text-gray-500;
+  }
+
+  .form-input-dark {
+    @apply form-input bg-ui-950 border-ui-border text-ui-light placeholder-gray-400
+           focus:ring-ui-500;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-2;
+  }
+
+  .form-label-dark {
+    @apply form-label text-gray-300;
+  }
+
+  /* Typography utility classes */
+  .text-display {
+    @apply font-display font-semibold tracking-tight;
+  }
+
+  .text-body {
+    @apply font-body;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Loading states */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-b-2 border-ui-500;
+  }
+
+  /* Game-specific components */
+  .game-timer {
+    @apply text-2xl font-mono font-bold tabular-nums;
+  }
+
+  .phase-indicator {
+    @apply px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wide;
+  }
+
+  .player-count {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+}
+
+/* 
+ * Utilities Layer - Single-purpose utility classes
+ */
+@layer utilities {
+  /* Text shadows for dramatic effect in headers */
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  }
+
+  .text-shadow-sm {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Background utilities for atmospheric effects */
+  .bg-vignette {
+    background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.6) 100%);
+  }
+
+  .bg-noir-gradient {
+    background: linear-gradient(135deg, theme('colors.ui.950') 0%, theme('colors.gray.900') 50%, theme('colors.ui.dark') 100%);
+  }
+
+  /* Glassmorphism effects for modern UI elements */
+  .glass {
+    @apply backdrop-blur-md bg-white/10 border border-white/20;
+  }
+
+  .glass-dark {
+    @apply backdrop-blur-md bg-black/20 border border-white/10;
+  }
+
+  /* Interactive states */
+  .interactive {
+    @apply transition-all duration-200 cursor-pointer select-none
+           hover:scale-105 active:scale-95;
+  }
+
+  .interactive-subtle {
+    @apply transition-all duration-200 cursor-pointer select-none
+           hover:bg-white/5 active:bg-white/10 rounded-lg;
+  }
+
+  /* Accessibility utilities */
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+  }
+
+  .not-sr-only {
+    @apply static w-auto h-auto p-0 m-0 overflow-visible whitespace-normal;
+  }
+
+  /* Focus management */
+  .focus-within-ring {
+    @apply focus-within:ring-2 focus-within:ring-ui-500 focus-within:ring-offset-2;
+  }
+
+  /* Layout utilities */
+  .container-game {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+  }
+
+  .flex-center {
+    @apply flex items-center justify-center;
+  }
+
+  .flex-between {
+    @apply flex items-center justify-between;
+  }
+
+  /* Animation utilities */
+  .animate-heartbeat {
+    animation: heartbeat 2s ease-in-out infinite;
+  }
+
+  @keyframes heartbeat {
+    0%, 50%, 100% { transform: scale(1); }
+    25%, 75% { transform: scale(1.1); }
+  }
+}

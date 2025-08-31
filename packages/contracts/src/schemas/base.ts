@@ -23,7 +23,9 @@ export const ErrorCodeSchema = z.enum([
   'ROOM_FULL',
   'ROOM_NOT_FOUND',
   'UNAUTHORIZED',
-  'RATE_LIMITED'
+  'RATE_LIMITED',
+  'INVALID_NAME',
+  'INTERNAL_ERROR'
 ]);
 
 export const TimestampSchema = z.object({

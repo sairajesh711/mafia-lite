@@ -4,6 +4,10 @@ import type { NightAction, Vote, InvestigationResult } from './actions.js';
 
 // Socket.IO Event Payloads
 
+export interface RoomCreatePayload {
+  readonly hostName: string;
+}
+
 export interface RoomJoinPayload {
   readonly roomCode: string;
   readonly playerName: string;
@@ -114,6 +118,7 @@ export interface ErrorEvent extends Versioned {
 // Union types for type safety
 
 export type ClientToServerEvent = 
+  | { event: 'room.create'; payload: RoomCreatePayload }
   | { event: 'room.join'; payload: RoomJoinPayload }
   | { event: 'session.resume'; payload: SessionResumePayload }
   | { event: 'action.submit'; payload: ActionSubmitPayload }

@@ -71,7 +71,84 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
       }
     };
 
-    // Room join handler
+    // Room create handler (host only)
+    socket.on('room.create', async (data) => {
+      try {
+        // Validate event payload
+        const parseResult = ClientToServerEventSchema.safeParse({ event: 'room.create', payload: data });
+        if (!parseResult.success) {
+          sendError('UNAUTHORIZED', 'Invalid request format');
+          return;
+        }
+
+        const eventData = parseResult.data;
+        if (eventData.event !== 'room.create') {
+          sendError('UNAUTHORIZED', 'Invalid event type');
+          return;
+        }
+
+        const { hostName } = eventData.payload;
+        
+        // Validate host name
+        if (!hostName || hostName.trim().length < 3 || hostName.trim().length > 15) {
+          sendError('INVALID_NAME', 'Host name must be 3-15 characters');
+          return;
+        }
+
+        // Generate host player ID
+        const hostId = generateId();
+        
+        try {
+          // Create room with host
+          const { roomId, code } = await roomService.createRoom(hostId, hostName.trim());
+          
+          // Join socket room
+          await socket.join(`room:${roomId}`);
+          currentRoomId = roomId;
+          currentPlayerId = hostId;
+
+          // Issue JWT token
+          const jwtSessionId = generateId();
+          const jwt = JWTService.issueRoomToken(hostId, roomId, jwtSessionId);
+
+          // Register session
+          await sessionService.registerSession({
+            playerId: hostId,
+            roomId,
+            sessionId: jwtSessionId,
+            socketId: socket.id,
+            connectedAt: Date.now(),
+          });
+
+          // Get room state and send client view
+          const roomState = await roomService.getRoomState(roomId);
+          if (roomState) {
+            const clientView = createClientView(roomState, hostId);
+            const snapshotEvent: ServerToClientEvent = {
+              event: 'room.snapshot',
+              view: clientView,
+              playerId: hostId,
+              jwt,
+              sessionId: jwtSessionId,
+              protocolVersion: PROTOCOL_VERSION,
+            };
+            socket.emit('room.snapshot', snapshotEvent);
+          }
+
+          console.log(`Room ${code} created by host ${hostId} (${hostName})`);
+          
+        } catch (error) {
+          console.error('Room creation error:', error);
+          sendError('INTERNAL_ERROR', 'Failed to create room');
+        }
+        
+      } catch (error) {
+        console.error('Room create error:', error);
+        sendError('UNAUTHORIZED', 'Failed to process room creation');
+      }
+    });
+
+    // Room join handler (strict validation)
     socket.on('room.join', async (data) => {
       try {
         // Validate event payload
@@ -90,11 +167,18 @@ export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<
 
         const { roomCode, playerName, sessionId } = eventData.payload;
         
-        // Find room by code
-        let roomId = await roomService.findRoomByCode(roomCode);
+        // Strict validation: Find room by code (no auto-creation)
+        const roomId = await roomService.findRoomByCode(roomCode);
         
         if (!roomId) {
-          sendError('ROOM_NOT_FOUND', `Room ${roomCode} not found`);
+          sendError('ROOM_NOT_FOUND', `Room code "${roomCode}" is not valid. Please check the code and try again.`);
+          return;
+        }
+
+        // Verify room actually exists
+        const roomState = await roomService.getRoomState(roomId);
+        if (!roomState) {
+          sendError('ROOM_NOT_FOUND', `Room no longer exists`);
           return;
         }
 

@@ -21,7 +21,9 @@ export type ErrorCode =
   | 'ROOM_FULL' 
   | 'ROOM_NOT_FOUND' 
   | 'UNAUTHORIZED'
-  | 'RATE_LIMITED';
+  | 'RATE_LIMITED'
+  | 'INVALID_NAME'
+  | 'INTERNAL_ERROR';
 
 export interface Timestamp {
   readonly submittedAt: number;
