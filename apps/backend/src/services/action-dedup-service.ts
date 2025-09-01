@@ -8,12 +8,16 @@ export interface DeduplicationResult {
 }
 
 export class ActionDedupService {
-  constructor(private redis: ReturnType<typeof createClient>) {}
+  constructor(private redis: ReturnType<typeof createClient> | null) {}
 
   /**
    * Check if action is duplicate and mark as processing
    */
   async checkAndMarkAction(actionId: Id, playerId: Id, roomId: Id): Promise<DeduplicationResult> {
+    if (!this.redis) {
+      return { isDuplicate: false, wasProcessed: false };
+    }
+    
     const key = `action:${actionId}:${playerId}:${roomId}`;
     
     // Try to set the action with NX (only if not exists)
@@ -50,6 +54,8 @@ export class ActionDedupService {
    * Mark action as successfully completed
    */
   async markActionCompleted(actionId: Id, playerId: Id, roomId: Id, response?: any): Promise<void> {
+    if (!this.redis) return;
+    
     const key = `action:${actionId}:${playerId}:${roomId}`;
     
     await this.redis.set(key, JSON.stringify({
@@ -68,6 +74,8 @@ export class ActionDedupService {
    * Mark action as failed (allows retry)
    */
   async markActionFailed(actionId: Id, playerId: Id, roomId: Id, error: string): Promise<void> {
+    if (!this.redis) return;
+    
     const key = `action:${actionId}:${playerId}:${roomId}`;
     
     await this.redis.set(key, JSON.stringify({
@@ -86,6 +94,8 @@ export class ActionDedupService {
    * Clean up old action dedup entries (called periodically)
    */
   async cleanup(): Promise<number> {
+    if (!this.redis) return 0;
+    
     const pattern = 'action:*';
     const keys = await this.redis.keys(pattern);
     
@@ -106,6 +116,8 @@ export class ActionDedupService {
    * Get action status for debugging
    */
   async getActionStatus(actionId: Id, playerId: Id, roomId: Id): Promise<any> {
+    if (!this.redis) return null;
+    
     const key = `action:${actionId}:${playerId}:${roomId}`;
     const data = await this.redis.get(key);
     return data ? JSON.parse(data) : null;

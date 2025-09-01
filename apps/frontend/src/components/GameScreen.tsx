@@ -24,8 +24,8 @@ export default function GameScreen({ socket }: GameScreenProps) {
     return <div>Player not found</div>;
   }
 
-  const alivePlayers = Object.values(roomView.players).filter(p => p.status === 'alive');
-  const deadPlayers = Object.values(roomView.players).filter(p => p.status === 'dead');
+  const alivePlayers = Object.values(roomView.players).filter((p: any) => p.status === 'alive');
+  const deadPlayers = Object.values(roomView.players).filter((p: any) => p.status === 'dead');
   
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -123,7 +123,7 @@ export default function GameScreen({ socket }: GameScreenProps) {
       <div className="players">
         <h3>Alive Players ({alivePlayers.length})</h3>
         <div className="players">
-          {alivePlayers.map(player => (
+          {alivePlayers.map((player: any) => (
             <div
               key={player.id}
               className={`player ${selectedTarget === player.id ? 'selected' : ''}`}
@@ -141,7 +141,7 @@ export default function GameScreen({ socket }: GameScreenProps) {
               <div>{player.name}</div>
               <div style={{ fontSize: '0.8em', color: '#666' }}>
                 {player.connected ? '🟢' : '🔴'}
-                {roomView.votes && roomView.votes[player.id] && ` • ${Object.values(roomView.votes).filter(v => v.targetId === player.id).length} votes`}
+                {roomView.votes && roomView.votes[player.id] && ` • ${Object.values(roomView.votes).filter((v: any) => v.targetId === player.id).length} votes`}
               </div>
             </div>
           ))}
@@ -152,7 +152,7 @@ export default function GameScreen({ socket }: GameScreenProps) {
         <div>
           <h3>Dead Players ({deadPlayers.length})</h3>
           <div className="players">
-            {deadPlayers.map(player => (
+            {deadPlayers.map((player: any) => (
               <div key={player.id} className="player dead">
                 <div>{player.name}</div>
                 <div style={{ fontSize: '0.8em', color: '#666' }}>
@@ -195,7 +195,7 @@ export default function GameScreen({ socket }: GameScreenProps) {
       {roomView.investigationResults && roomView.investigationResults.length > 0 && (
         <div style={{ marginTop: '20px', padding: '12px', backgroundColor: '#ffe', border: '1px solid #cc6' }}>
           <h4>🔍 Investigation Results</h4>
-          {roomView.investigationResults.map((result, i) => (
+          {roomView.investigationResults.map((result: any, i: number) => (
             <div key={i}>
               {roomView.players[result.targetId]?.name || 'Unknown'} is {result.isMafia ? 'Mafia' : 'Town'}
             </div>

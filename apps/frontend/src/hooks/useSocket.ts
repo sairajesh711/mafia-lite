@@ -12,7 +12,7 @@ interface SocketState {
   error: string | null;
 }
 
-const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:3001';
+const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL || 'https://mafia-backend-prod-127088130004.europe-west1.run.app';
 
 export function useSocket(): SocketState & {
   connectSocket: () => Socket;

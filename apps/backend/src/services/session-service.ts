@@ -11,12 +11,16 @@ export interface PlayerSession {
 }
 
 export class SessionService {
-  constructor(private redis: ReturnType<typeof createClient>) {}
+  constructor(private redis: ReturnType<typeof createClient> | null) {}
 
   /**
    * Register a new player session
    */
   async registerSession(session: PlayerSession): Promise<void> {
+    if (!this.redis) {
+      console.warn('Redis unavailable - session will not persist across restarts');
+      return;
+    }
     const key = `session:${session.playerId}:${session.roomId}`;
     
     await this.redis.hSet(key, {
@@ -34,6 +38,8 @@ export class SessionService {
    * Get active session for a player in a room
    */
   async getSession(playerId: Id, roomId: Id): Promise<PlayerSession | null> {
+    if (!this.redis) return null;
+    
     const key = `session:${playerId}:${roomId}`;
     const sessionData = await this.redis.hGetAll(key);
     
@@ -55,6 +61,8 @@ export class SessionService {
    * Update session socket ID (for reconnection)
    */
   async updateSessionSocket(playerId: Id, roomId: Id, socketId: string): Promise<void> {
+    if (!this.redis) return;
+    
     const key = `session:${playerId}:${roomId}`;
     await this.redis.hSet(key, 'socketId', socketId);
   }
@@ -63,6 +71,8 @@ export class SessionService {
    * Update last acknowledged action ID
    */
   async updateLastAckedAction(playerId: Id, roomId: Id, actionId: Id): Promise<void> {
+    if (!this.redis) return;
+    
     const key = `session:${playerId}:${roomId}`;
     await this.redis.hSet(key, 'lastAckedActionId', actionId);
   }
@@ -72,7 +82,7 @@ export class SessionService {
    */
   async evictSession(playerId: Id, roomId: Id): Promise<PlayerSession | null> {
     const session = await this.getSession(playerId, roomId);
-    if (session) {
+    if (session && this.redis) {
       const key = `session:${playerId}:${roomId}`;
       await this.redis.del(key);
     }
@@ -91,6 +101,8 @@ export class SessionService {
    * Get all active sessions for a room (for broadcasting)
    */
   async getRoomSessions(roomId: Id): Promise<PlayerSession[]> {
+    if (!this.redis) return [];
+    
     const pattern = `session:*:${roomId}`;
     const keys = await this.redis.keys(pattern);
     

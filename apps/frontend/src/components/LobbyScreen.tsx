@@ -58,7 +58,7 @@ export default function LobbyScreen({ socket }: LobbyScreenProps) {
             </div>
             
             <div className="space-y-3">
-              {Object.values(roomView.players).map(player => (
+              {Object.values(roomView.players).map((player: any) => (
                 <div key={player.id} className="flex items-center justify-between p-3 bg-ui-900/50 rounded-lg">
                   <div className="flex items-center">
                     <div className="w-8 h-8 bg-ui-700 rounded-full flex items-center justify-center mr-3">

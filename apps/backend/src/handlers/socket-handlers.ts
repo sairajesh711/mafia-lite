@@ -21,7 +21,7 @@ import {
   shouldAdvancePhase 
 } from '@mafia/engine';
 
-export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<typeof createClient>) {
+export function setupSocketHandlers(io: SocketIOServer, redisClient: ReturnType<typeof createClient> | null) {
   const roomService = new RoomService(redisClient);
   const sessionService = new SessionService(redisClient);
   const actionDedupService = new ActionDedupService(redisClient);

@@ -11,7 +11,20 @@
       "Bash(npx tsc:*)",
       "Bash(taskkill:*)",
       "Bash(curl:*)",
-      "Bash(gcloud builds log:*)"
+      "Bash(gcloud builds log:*)",
+      "Bash(./deploy-production.sh)",
+      "Bash(gcloud compute networks vpc-access connectors describe:*)",
+      "Bash(gcloud compute networks vpc-access connectors delete:*)",
+      "Bash(gcloud run services update-traffic:*)",
+      "Bash(gcloud redis instances describe:*)",
+      "Bash(echo:*)",
+      "Bash(gcloud run services logs read:*)",
+      "Bash(gcloud run services describe:*)",
+      "Bash(gcloud run revisions describe:*)",
+      "Bash(gcloud builds list:*)",
+      "Bash(gcloud logging read:*)",
+      "Bash(gcloud compute networks vpc-access connectors list:*)",
+      "Bash(gcloud projects get-iam-policy:*)"
     ],
     "deny": [],
     "ask": []

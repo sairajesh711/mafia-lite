@@ -4,7 +4,10 @@ import { generateId, generateRoomCode } from '@mafia/engine';
 import { getDefaultRoleDistribution } from '@mafia/engine';
 
 export class RoomService {
-  constructor(private redis: ReturnType<typeof createClient>) {}
+  private inMemoryRooms = new Map<string, RoomState>();
+  private inMemoryCodes = new Map<string, string>();
+
+  constructor(private redis: ReturnType<typeof createClient> | null) {}
 
   /**
    * Create a new room with the given host
@@ -13,15 +16,23 @@ export class RoomService {
     const roomId = generateId();
     const code = generateRoomCode();
     
-    // Reserve the room code
-    const codeReserved = await this.redis.setNX(`room_code:${code}`, roomId);
-    if (!codeReserved) {
-      // Code collision, try again (very rare)
-      return this.createRoom(hostId, hostName);
+    if (this.redis) {
+      // Reserve the room code
+      const codeReserved = await this.redis.setNX(`room_code:${code}`, roomId);
+      if (!codeReserved) {
+        // Code collision, try again (very rare)
+        return this.createRoom(hostId, hostName);
+      }
+      
+      // Set expiration on room code (same as room - 24 hours)
+      await this.redis.expire(`room_code:${code}`, 86400);
+    } else {
+      // In-memory fallback
+      if (this.inMemoryCodes.has(code)) {
+        return this.createRoom(hostId, hostName);
+      }
+      this.inMemoryCodes.set(code, roomId);
     }
-    
-    // Set expiration on room code (same as room - 24 hours)
-    await this.redis.expire(`room_code:${code}`, 86400);
     
     // Create initial room state
     const hostPlayer: Player = {
@@ -61,15 +72,20 @@ export class RoomService {
     };
     
     // Store room state
-    await this.redis.hSet(`room:${roomId}`, {
-      state: JSON.stringify(initialState),
-      code,
-      hostId,
-      createdAt: Date.now().toString(),
-    });
-    
-    // Set expiration on room (24 hours)
-    await this.redis.expire(`room:${roomId}`, 86400);
+    if (this.redis) {
+      await this.redis.hSet(`room:${roomId}`, {
+        state: JSON.stringify(initialState),
+        code,
+        hostId,
+        createdAt: Date.now().toString(),
+      });
+      
+      // Set expiration on room (24 hours)
+      await this.redis.expire(`room:${roomId}`, 86400);
+    } else {
+      // In-memory fallback
+      this.inMemoryRooms.set(roomId, initialState);
+    }
     
     return { roomId, code };
   }
@@ -78,22 +94,24 @@ export class RoomService {
    * Find room by code
    */
   async findRoomByCode(code: string): Promise<Id | null> {
-    const roomId = await this.redis.get(`room_code:${code}`);
-    return roomId;
+    if (this.redis) {
+      const roomId = await this.redis.get(`room_code:${code}`);
+      return roomId;
+    } else {
+      return this.inMemoryCodes.get(code) || null;
+    }
   }
 
   /**
    * Get room state
    */
   async getRoomState(roomId: Id): Promise<RoomState | null> {
-    const roomData = await this.redis.hGet(`room:${roomId}`, 'state');
-    if (!roomData) return null;
-    
-    try {
-      return JSON.parse(roomData) as RoomState;
-    } catch (error) {
-      console.error('Failed to parse room state:', error);
-      return null;
+    if (this.redis) {
+      const roomData = await this.redis.hGet(`room:${roomId}`, 'state');
+      if (!roomData) return null;
+      return JSON.parse(roomData);
+    } else {
+      return this.inMemoryRooms.get(roomId) || null;
     }
   }
 
@@ -106,10 +124,13 @@ export class RoomService {
       lastSnapshot: Date.now(),
     };
     
-    await this.redis.hSet(`room:${roomId}`, 'state', JSON.stringify(updatedState));
-    
-    // Extend expiration
-    await this.redis.expire(`room:${roomId}`, 86400);
+    if (this.redis) {
+      await this.redis.hSet(`room:${roomId}`, 'state', JSON.stringify(updatedState));
+      // Extend expiration
+      await this.redis.expire(`room:${roomId}`, 86400);
+    } else {
+      this.inMemoryRooms.set(roomId, updatedState);
+    }
   }
 
   /**
@@ -247,9 +268,14 @@ export class RoomService {
    */
   async deleteRoom(roomId: Id): Promise<void> {
     const state = await this.getRoomState(roomId);
-    if (state) {
+    if (this.redis && state) {
       await this.redis.del(`room_code:${state.code}`);
+      await this.redis.del(`room:${roomId}`);
+    } else if (!this.redis) {
+      this.inMemoryRooms.delete(roomId);
+      if (state) {
+        this.inMemoryCodes.delete(state.code);
+      }
     }
-    await this.redis.del(`room:${roomId}`);
   }
 }

@@ -18,7 +18,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     REDIS_IP=$(gcloud redis instances describe mafia-redis-eu --region=europe-west1 --format="value(host)" --project=mafia-game-prod-470720)
     
     gcloud builds submit \
-      --config=cloudbuild-europe.yaml \
+      --config=cloudbuild.yaml \
       --substitutions=_REDIS_URL="redis://${REDIS_IP}:6379" \
       --project=mafia-game-prod-470720 \
       ../..
