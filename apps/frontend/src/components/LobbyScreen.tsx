@@ -19,10 +19,20 @@ export default function LobbyScreen({ socket }: LobbyScreenProps) {
 
   const isHost = roomView.isHost;
   const playerCount = Object.keys(roomView.players).length;
-  const canStart = playerCount >= 3; // Minimum for a game
+  const canStart = playerCount >= 5; // Minimum for a good mafia game
   
-  // If the current user is the host, then their playerId is the hostId
-  const hostId = isHost ? playerId : null;
+  // Get hostId from room view - now all players can see who the host is
+  const hostId = roomView.hostId;
+  
+  // Debug logging
+  console.log('LobbyScreen Debug:', {
+    playerId,
+    hostId,
+    isHost,
+    playerCount,
+    canStart,
+    players: Object.values(roomView.players).map((p: any) => ({ id: p.id, name: p.name }))
+  });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -67,6 +77,9 @@ export default function LobbyScreen({ socket }: LobbyScreenProps) {
                     <div>
                       <div className="text-gray-200 font-medium flex items-center">
                         {player.name}
+                        {player.id === playerId && (
+                          <span className="ml-2 text-xs px-2 py-0.5 bg-blue-600 text-blue-200 rounded">You</span>
+                        )}
                         {player.id === hostId && (
                           <span className="ml-2 text-xs px-2 py-0.5 bg-ui-600 text-ui-200 rounded">Host</span>
                         )}
@@ -86,10 +99,10 @@ export default function LobbyScreen({ socket }: LobbyScreenProps) {
               ))}
             </div>
             
-            {playerCount < 3 && (
+            {playerCount < 5 && (
               <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/30 rounded-lg">
                 <p className="text-yellow-400 text-sm text-center">
-                  Need at least 3 players to start the game
+                  Need at least 5 players to start the game
                 </p>
               </div>
             )}
@@ -103,7 +116,7 @@ export default function LobbyScreen({ socket }: LobbyScreenProps) {
                 disabled={!canStart}
                 className={`flex-1 ${canStart ? 'btn-primary' : 'btn-secondary'}`}
               >
-                {canStart ? 'Start Game' : `Need ${3 - playerCount} more player${3 - playerCount !== 1 ? 's' : ''}`}
+                {canStart ? 'Start Game' : `Need ${5 - playerCount} more player${5 - playerCount !== 1 ? 's' : ''}`}
               </button>
             ) : (
               <div className="flex-1 p-3 text-center text-gray-400 border border-ui-700 rounded-lg">

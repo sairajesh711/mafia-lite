@@ -74,6 +74,7 @@ export function createClientView(
     timer: state.timer,
     settings: state.settings,
     players: publicPlayers,
+    hostId: state.hostId, // Include hostId so all players can see who the host is
     isHost: playerId === state.hostId,
     selfRole: {
       roleId: player.roleId,

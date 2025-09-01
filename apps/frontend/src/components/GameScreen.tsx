@@ -138,7 +138,10 @@ export default function GameScreen({ socket }: GameScreenProps) {
                 }
               }}
             >
-              <div>{player.name}</div>
+              <div>
+                {player.name}
+                {player.id === playerId && <span style={{ color: '#4a90e2', fontSize: '0.8em', marginLeft: '8px' }}>(You)</span>}
+              </div>
               <div style={{ fontSize: '0.8em', color: '#666' }}>
                 {player.connected ? '🟢' : '🔴'}
                 {roomView.votes && roomView.votes[player.id] && ` • ${Object.values(roomView.votes).filter((v: any) => v.targetId === player.id).length} votes`}

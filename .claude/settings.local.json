@@ -24,7 +24,8 @@
       "Bash(gcloud builds list:*)",
       "Bash(gcloud logging read:*)",
       "Bash(gcloud compute networks vpc-access connectors list:*)",
-      "Bash(gcloud projects get-iam-policy:*)"
+      "Bash(gcloud projects get-iam-policy:*)",
+      "Bash(gcloud run services add-iam-policy-binding:*)"
     ],
     "deny": [],
     "ask": []

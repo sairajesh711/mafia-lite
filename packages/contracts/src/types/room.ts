@@ -50,6 +50,7 @@ export interface ClientView extends Versioned {
   readonly settings: RoomSettings;
   readonly players: Record<Id, PublicPlayer>;
   readonly votes?: Record<Id, Vote>; // Only during vote phase or if settings allow
+  readonly hostId: Id; // ID of the host player so all players can identify host
   readonly isHost: boolean;
   readonly selfRole: {
     readonly roleId: string;
