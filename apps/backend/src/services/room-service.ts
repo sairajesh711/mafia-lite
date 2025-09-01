@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
-import type { RoomState, Player, Id } from '@mafia/contracts';
+import type { Player, Id } from '@mafia/contracts';
+import { RoomStateSchema, type RoomState } from '@mafia/contracts';
 import { generateId, generateRoomCode } from '@mafia/engine';
 import { getDefaultRoleDistribution } from '@mafia/engine';
 
@@ -83,8 +84,15 @@ export class RoomService {
       // Set expiration on room (24 hours)
       await this.redis.expire(`room:${roomId}`, 86400);
     } else {
-      // In-memory fallback
-      this.inMemoryRooms.set(roomId, initialState);
+      // In-memory fallback - VALIDATE with schema to ensure hostId is preserved
+      const validatedState = RoomStateSchema.parse(initialState);
+      console.log('DEBUG: Storing validated room state in memory:', { 
+        roomId, 
+        hostId: validatedState.hostId, 
+        code,
+        hasHostId: !!validatedState.hostId 
+      });
+      this.inMemoryRooms.set(roomId, validatedState);
     }
     
     return { roomId, code };
@@ -111,26 +119,71 @@ export class RoomService {
       if (!roomData) return null;
       return JSON.parse(roomData);
     } else {
-      return this.inMemoryRooms.get(roomId) || null;
+      const state = this.inMemoryRooms.get(roomId) || null;
+      if (state) {
+        console.log('DEBUG: Retrieved room state from memory:', { 
+          roomId, 
+          hostId: state.hostId, 
+          hasHostId: !!state.hostId 
+        });
+        // No re-parsing here - trust the stored state (already validated on write)
+      }
+      return state;
     }
   }
 
   /**
-   * Update room state
+   * Update room state with invariant checks (bulletproof version)
+   * This method makes it impossible to accidentally lose hostId
    */
   async updateRoomState(roomId: Id, state: RoomState): Promise<void> {
+    const existingState = await this.getRoomState(roomId);
+    
+    // INVARIANT CHECKS - prevent regression
+    if (!state.hostId) {
+      throw new Error(`Invariant violation: hostId missing in update for room ${roomId}`);
+    }
+    if (existingState && state.hostId !== existingState.hostId) {
+      throw new Error(`Invariant violation: hostId changed unexpectedly in room ${roomId}`);
+    }
+    
     const updatedState = {
       ...state,
+      hostId: existingState?.hostId || state.hostId, // Double-ensure hostId preservation
       lastSnapshot: Date.now(),
     };
     
+    // VALIDATE with schema before storing
+    const validatedState = RoomStateSchema.parse(updatedState);
+    
+    console.log('DEBUG: Updating room state:', { 
+      roomId, 
+      oldHostId: existingState?.hostId, 
+      newHostId: validatedState.hostId,
+      preserved: existingState?.hostId === validatedState.hostId 
+    });
+    
     if (this.redis) {
-      await this.redis.hSet(`room:${roomId}`, 'state', JSON.stringify(updatedState));
-      // Extend expiration
+      await this.redis.hSet(`room:${roomId}`, 'state', JSON.stringify(validatedState));
       await this.redis.expire(`room:${roomId}`, 86400);
     } else {
-      this.inMemoryRooms.set(roomId, updatedState);
+      this.inMemoryRooms.set(roomId, validatedState);
     }
+  }
+
+  /**
+   * Safer update helper - prevents accidental hostId loss
+   */
+  async updateRoomStateSafe(roomId: Id, mutator: (prev: RoomState) => RoomState): Promise<RoomState> {
+    const prev = await this.getRoomState(roomId);
+    if (!prev) throw new Error(`Room ${roomId} not found`);
+    
+    const next = mutator(prev);
+    await this.updateRoomState(roomId, next);
+    
+    const updated = await this.getRoomState(roomId);
+    if (!updated) throw new Error(`Failed to update room ${roomId}`);
+    return updated;
   }
 
   /**
@@ -167,15 +220,15 @@ export class RoomService {
       ...(sessionId ? { sessionId } : {}),
     };
     
-    const updatedState: RoomState = {
-      ...state,
+    // Use the safer update pattern that preserves hostId
+    const updatedState = await this.updateRoomStateSafe(roomId, (prev) => ({
+      ...prev,
       players: {
-        ...state.players,
+        ...prev.players,
         [playerId]: newPlayer,
       },
-    };
+    }));
     
-    await this.updateRoomState(roomId, updatedState);
     return updatedState;
   }
 

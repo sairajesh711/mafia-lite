@@ -86,6 +86,13 @@ export function createClientView(
     protocolVersion: PROTOCOL_VERSION,
   };
 
+  console.log('DEBUG: Creating ClientView:', { 
+    playerId, 
+    stateHostId: state.hostId, 
+    baseViewHostId: baseView.hostId, 
+    isHost: baseView.isHost 
+  });
+
   return {
     ...baseView,
     ...(visibleVotes !== undefined ? { votes: visibleVotes } : {}),

@@ -24,7 +24,13 @@ export default function LobbyScreen({ socket }: LobbyScreenProps) {
   // Get hostId from room view - now all players can see who the host is
   const hostId = roomView.hostId;
   
-  // Debug logging
+  // Debug logging - Clear localStorage to avoid cached sessions
+  if (hostId === undefined) {
+    console.warn('hostId is undefined - clearing cache');
+    localStorage.removeItem('mafia_jwt');
+    localStorage.removeItem('mafia_room_id'); 
+    localStorage.removeItem('mafia_session_id');
+  }
   console.log('LobbyScreen Debug:', {
     playerId,
     hostId,

@@ -25,7 +25,9 @@
       "Bash(gcloud logging read:*)",
       "Bash(gcloud compute networks vpc-access connectors list:*)",
       "Bash(gcloud projects get-iam-policy:*)",
-      "Bash(gcloud run services add-iam-policy-binding:*)"
+      "Bash(gcloud run services add-iam-policy-binding:*)",
+      "Bash(pnpm --filter \"@mafia/contracts\" build)",
+      "Bash(pnpm --filter \"@mafia/backend\" build)"
     ],
     "deny": [],
     "ask": []
