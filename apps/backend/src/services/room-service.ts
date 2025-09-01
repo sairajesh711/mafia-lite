@@ -86,11 +86,12 @@ export class RoomService {
     } else {
       // In-memory fallback - VALIDATE with schema to ensure hostId is preserved
       const validatedState = RoomStateSchema.parse(initialState);
-      console.log('DEBUG: Storing validated room state in memory:', { 
+      console.log('🏠 ROOM CREATION:', { 
         roomId, 
         hostId: validatedState.hostId, 
         code,
-        hasHostId: !!validatedState.hostId 
+        hasHostId: !!validatedState.hostId,
+        hostIdType: typeof validatedState.hostId
       });
       this.inMemoryRooms.set(roomId, validatedState);
     }

@@ -86,11 +86,14 @@ export function createClientView(
     protocolVersion: PROTOCOL_VERSION,
   };
 
-  console.log('DEBUG: Creating ClientView:', { 
-    playerId, 
+  console.log('🔍 ClientView DEBUG:', { 
+    forPlayer: playerId, 
+    roomId: state.id,
     stateHostId: state.hostId, 
-    baseViewHostId: baseView.hostId, 
-    isHost: baseView.isHost 
+    resultHostId: baseView.hostId, 
+    resultIsHost: baseView.isHost,
+    hasHostId: !!state.hostId,
+    hostIdType: typeof state.hostId
   });
 
   return {
